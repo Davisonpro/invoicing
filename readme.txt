@@ -142,6 +142,9 @@ Automatic updates should work seamlessly. To avoid unforeseen problems, we alway
 
 == Changelog ==
 
+= 2.8.44 - 2026-02-TBD =
+* Option added to use native site template for direct payment page - ADDED
+
 = 2.8.43 - 2026-02-19 =
 * Decimal Separator as comma don't allows to enter prices with comma - FIXED
 
