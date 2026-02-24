@@ -1304,6 +1304,7 @@ function getpaid_display_invoice_payment_form( $invoice_id ) {
     }
 
     $form = new GetPaid_Payment_Form( wpinv_get_default_payment_form() );
+    $form->invoice = $invoice;
     $form->set_items( $invoice->get_items() );
 
     $form->display();
