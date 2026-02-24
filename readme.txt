@@ -144,6 +144,7 @@ Automatic updates should work seamlessly. To avoid unforeseen problems, we alway
 
 = 2.8.43 - TBD =
 * Authorize.net - ACH/eCheck bank account payments - ADDED
+* Minor bug fixes - FIXED
 
 = 2.8.43 - 2026-02-19 =
 * Decimal Separator as comma don't allows to enter prices with comma - FIXED
