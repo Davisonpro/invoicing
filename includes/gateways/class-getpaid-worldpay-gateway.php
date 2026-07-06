@@ -219,8 +219,19 @@ class GetPaid_Worldpay_Gateway extends GetPaid_Payment_Gateway {
             wp_die( 'Worldpay IPN Request Failure', 'Worldpay IPN', array( 'response' => 403 ) );
         }
 
+        // Abort empty requests.
+        if ( empty( $_POST ) ) {
+		    wp_die( 'Worldpay IPN Request Failure', 'Worldpay IPN', array( 'response' => 500 ) );
+		}
+
+        // No shared secret to verify against: hold for manual review instead of marking paid.
+        if ( '' === (string) $this->get_option( 'callbackPW' ) && '' === (string) $this->get_option( 'md5_secret' ) ) {
+            $this->hold_for_manual_review();
+            exit;
+        }
+
         // Validate the IPN.
-        if ( empty( $_POST ) || ! $this->validate_ipn() ) {
+        if ( ! $this->validate_ipn() ) {
 		    wp_die( 'Worldpay IPN Request Failure', 'Worldpay IPN', array( 'response' => 500 ) );
 		}
 
@@ -339,9 +350,9 @@ class GetPaid_Worldpay_Gateway extends GetPaid_Payment_Gateway {
 		$password   = (string) $password;
 		$md5_secret = (string) $md5_secret;
 
-		// No shared secret: fall back to the legacy behaviour.
+		// No shared secret: cannot authenticate.
 		if ( '' === $password && '' === $md5_secret ) {
-			return true;
+			return false;
 		}
 
 		// Verify the Payment Response password (fail closed when set).
@@ -349,8 +360,12 @@ class GetPaid_Worldpay_Gateway extends GetPaid_Payment_Gateway {
 			return false;
 		}
 
-		// Verify the MD5 signature when set and returned by Worldpay (opportunistic).
-		if ( '' !== $md5_secret && ! empty( $data['signature'] ) ) {
+		// Verify the MD5 signature (required when a secret is set).
+		if ( '' !== $md5_secret ) {
+			if ( empty( $data['signature'] ) ) {
+				return false;
+			}
+
 			$amount   = isset( $data['amount'] ) ? $data['amount'] : '';
 			$currency = isset( $data['currency'] ) ? $data['currency'] : '';
 			$cart_id  = isset( $data['cartId'] ) ? $data['cartId'] : '';
@@ -384,6 +399,82 @@ class GetPaid_Worldpay_Gateway extends GetPaid_Payment_Gateway {
 		}
 
 		return strtolower( trim( (string) $invoice_currency ) ) === strtolower( trim( (string) $paid_currency ) );
+	}
+
+	/**
+	 * Holds an unverifiable notification for manual review and notifies the admin.
+	 *
+	 * @since 2.8.55
+	 * @return void
+	 */
+	protected function hold_for_manual_review() {
+
+		$posted     = wp_kses_post_deep( wp_unslash( $_POST ) );
+		$invoice_id = empty( $posted['cartId'] ) ? 0 : wpinv_get_id_by_invoice_number( wpinv_clean( $posted['cartId'] ) );
+		$invoice    = empty( $invoice_id ) ? false : wpinv_get_invoice( $invoice_id );
+
+		// Only act on a successful notification for a still-pending Worldpay invoice.
+		if ( empty( $invoice ) || $this->id != $invoice->get_gateway() || ! $invoice->has_status( 'wpi-pending' ) ) {
+			return;
+		}
+
+		if ( empty( $posted['transStatus'] ) || 'Y' !== $posted['transStatus'] ) {
+			return;
+		}
+
+		// Sanity check the installation id.
+		if ( empty( $posted['instId'] ) || ! hash_equals( (string) wpinv_clean( $this->get_option( 'instId', '' ) ), (string) $posted['instId'] ) ) {
+			return;
+		}
+
+		if ( ! empty( $posted['transId'] ) ) {
+			$invoice->set_transaction_id( wpinv_clean( $posted['transId'] ) );
+		}
+
+		$invoice->set_status( 'wpi-onhold' );
+		$invoice->save();
+
+		$invoice->add_note(
+			__( 'Worldpay sent a payment notification, but no Payment Response password or MD5 secret is configured, so it could not be verified. Confirm the payment in Worldpay before marking this invoice paid, and configure a secret to enable automatic verification.', 'invoicing' ),
+			false,
+			false,
+			true
+		);
+
+		$this->notify_admin_unverified( $invoice );
+	}
+
+	/**
+	 * Emails the site admin about an unverifiable Worldpay notification.
+	 *
+	 * @since 2.8.55
+	 * @param WPInv_Invoice $invoice
+	 * @return void
+	 */
+	protected function notify_admin_unverified( $invoice ) {
+
+		$settings_url = add_query_arg(
+			array(
+				'page'    => 'wpinv-settings',
+				'tab'     => 'gateways',
+				'section' => 'worldpay',
+			),
+			admin_url( 'admin.php' )
+		);
+
+		$message = sprintf(
+			/* translators: %1$s: invoice number, %2$s: Worldpay settings URL. */
+			__( 'Worldpay sent a payment notification for invoice %1$s, but it could not be verified because no Payment Response password or MD5 secret is configured. The invoice has been placed on hold. Confirm the payment in your Worldpay account, then configure a secret to enable automatic verification: %2$s', 'invoicing' ),
+			$invoice->get_number(),
+			esc_url( $settings_url )
+		);
+
+		$sender = new GetPaid_Notification_Email_Sender();
+		$sender->send(
+			wpinv_get_admin_email(),
+			__( 'Worldpay payment needs manual review', 'invoicing' ),
+			wpautop( wp_kses_post( $message ) )
+		);
 	}
 
     /**
