@@ -247,11 +247,11 @@ function wpinv_get_theme_template_paths() {
 function wpinv_checkout_meta_tags() {
 
 	$pages   = array();
-	$pages[] = wpinv_get_option( 'success_page' );
-	$pages[] = wpinv_get_option( 'failure_page' );
-	$pages[] = wpinv_get_option( 'invoice_history_page' );
-	$pages[] = wpinv_get_option( 'invoice_subscription_page' );
-	$pages[] = wpinv_get_option( 'direct_payment_page' );
+	$pages[] = (int)wpinv_get_option( 'success_page' );
+	$pages[] = (int)wpinv_get_option( 'failure_page' );
+	$pages[] = (int)wpinv_get_option( 'invoice_history_page' );
+	$pages[] = (int)wpinv_get_option( 'invoice_subscription_page' );
+	$pages[] = (int)wpinv_get_option( 'direct_payment_page' );
 
 	if ( ! wpinv_is_checkout() && ! is_page( $pages ) ) {
 		return;
