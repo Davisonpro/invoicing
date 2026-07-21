@@ -1086,6 +1086,10 @@ class GetPaid_Authorize_Net_Gateway extends GetPaid_Authorize_Net_Legacy_Gateway
 		// Check if there is an initial amount to charge.
 		if ( (float) $invoice->get_total() > 0 ) {
 			$this->process_initial_payment( $invoice );
+		} elseif ( $invoice->needs_payment() ) {
+			// No initial charge (free trial or discounted first payment); the payment profile is already stored, so just complete the invoice.
+			$invoice->add_note( wp_sprintf( __( '[Authorize.NET %s]: No initial payment required. Payment profile stored for future recurring charges.', 'invoicing' ), $this->get_mode_name() ), false, false, true );
+			$invoice->mark_paid();
 		}
 
 		// Activate the subscriptions.
