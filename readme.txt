@@ -142,6 +142,9 @@ Automatic updates should work seamlessly. To avoid unforeseen problems, we alway
 
 == Changelog ==
 
+= 2.8.56 - TBD =
+* Authorize.NET subscriptions with a free trial or zero-total first payment left the invoice stuck as pending - FIXED
+
 = 2.8.55 - 2026-07-08 =
 * Verify nonce and invoice ownership before processing checkout - SECURITY
 * Validate payment form uploads against allowed file types - SECURITY
