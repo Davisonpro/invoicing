@@ -3,9 +3,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: GetPaid 2.8.55\n"
+"Project-Id-Version: GetPaid 2.8.56\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/invoicing\n"
-"POT-Creation-Date: 2026-07-08 20:11+0530\n"
+"POT-Creation-Date: 2026-07-22 11:10+0530\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -13632,84 +13632,89 @@ msgstr ""
 msgid "[Authorize.NET %s]: paymentProfileId - %s"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1134
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1091
+#, php-format
+msgid "[Authorize.NET %s]: No initial payment required. Payment profile stored for future recurring charges."
+msgstr ""
+
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1138
 msgid "Error generating a renewal invoice."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1147
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1161
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1151
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1165
 #, php-format
 msgid "Error renewing subscription : ( %s )."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1246
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1250
 #, php-format
 msgid "SANDBOX ENABLED. You can use sandbox testing details only. See the %1$sAuthorize.NET Sandbox Testing Guide%2$s for more details."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1280
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1284
 #: includes/gateways/class-getpaid-paypal-gateway.php:615
 #: includes/gateways/class-getpaid-worldpay-gateway.php:534
 #, php-format
 msgid "Supported Currencies: %s"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1285
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1289
 msgid "Pay securely using your credit or debit card."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1290
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1294
 msgid "API Login ID"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1291
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1295
 msgid "How do I obtain my API Login ID and Transaction Key?"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1297
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1301
 msgid "Transaction Key"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1303
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1307
 msgid "Signature Key"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1304
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1312
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1308
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1316
 #: includes/gateways/class-getpaid-paypal-gateway.php:688
 msgid "Learn more."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1310
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1314
 msgid "Webhook URL"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1312
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1316
 msgid "Create a new webhook using this URL as the endpoint URL and set it to receive all payment events."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1321
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1325
 msgid "ACH/eCheck Settings"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1327
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1331
 msgid "Enable ACH Payments"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1329
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1333
 #, php-format
 msgid "Allow customers to pay via bank account (ACH/eCheck). Only available for USD transactions. %1$sLearn more about ACH payments%2$s."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1338
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1342
 msgid "ACH Description"
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1339
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1343
 msgid "Description shown to customers when they select ACH payment."
 msgstr ""
 
-#: includes/gateways/class-getpaid-authorize-net-gateway.php:1340
+#: includes/gateways/class-getpaid-authorize-net-gateway.php:1344
 msgid "Pay directly from your bank account."
 msgstr ""
 
@@ -15154,65 +15159,65 @@ msgstr ""
 msgid "An error occured while saving the item"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:453
+#: includes/wpinv-item-functions.php:451
 msgid "Free forever"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:466
+#: includes/wpinv-item-functions.php:464
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Free for 1 month then $120 / year)"
 msgid "Free for %1$s then %2$s / %3$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:476
+#: includes/wpinv-item-functions.php:474
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Free for 1 month then $120 / year for 4 years)"
 msgid "Free for %1$s then %2$s / %3$s for %4$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:489
+#: includes/wpinv-item-functions.php:487
 #, php-format
 msgctxt "Item subscription amount. (e.g.: $7 for 1 month then $120 / year)"
 msgid "%1$s for %2$s then %3$s / %4$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:500
+#: includes/wpinv-item-functions.php:498
 #, php-format
 msgctxt "Item subscription amount. (e.g.: $7 for 1 month then $120 / year for 5 years)"
 msgid "%1$s for %2$s then %3$s / %4$s for %5$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:516
+#: includes/wpinv-item-functions.php:514
 #, php-format
 msgctxt "Item subscription amount. (e.g.: $120 / year)"
 msgid "%1$s / %2$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:525
+#: includes/wpinv-item-functions.php:523
 #, php-format
 msgctxt "Item subscription amount. (e.g.: $120 / year for 5 years)"
 msgid "%1$s / %2$s for %3$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:539
+#: includes/wpinv-item-functions.php:537
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Free for 3 months then $7 / 3 months)"
 msgid "Free for %1$s then %2$s / %1$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:548
+#: includes/wpinv-item-functions.php:546
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Free for 3 months then $7 / 3 months for 12 months)"
 msgid "Free for %1$s then %2$s / %1$s for %3$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:560
+#: includes/wpinv-item-functions.php:558
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Initial payment of $7 then $120 / year)"
 msgid "Initial payment of %1$s then %2$s / %3$s"
 msgstr ""
 
-#: includes/wpinv-item-functions.php:570
+#: includes/wpinv-item-functions.php:568
 #, php-format
 msgctxt "Item subscription amount. (e.g.: Initial payment of $7 then $120 / year for 4 years)"
 msgid "Initial payment of %1$s then %2$s / %3$s for %4$s"
