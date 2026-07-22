@@ -398,7 +398,6 @@ function wpinv_update_item( $args = array(), $wp_error = false ) {
  * Sanitizes a recurring period
  */
 function getpaid_sanitize_recurring_period( $period, $full = false ) {
-
     $periods = array(
         'D' => 'day',
         'W' => 'week',
@@ -406,12 +405,11 @@ function getpaid_sanitize_recurring_period( $period, $full = false ) {
         'Y' => 'year',
     );
 
-    if ( ! isset( $periods[ $period ] ) ) {
+    if ( empty( $period ) || ! isset( $periods[ $period ] ) ) {
         $period = 'D';
     }
 
     return $full ? $periods[ $period ] : $period;
-
 }
 
 function wpinv_item_max_buyable_quantity( $item_id ) {
