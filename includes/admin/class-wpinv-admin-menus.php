@@ -56,7 +56,7 @@ class WPInv_Admin_Menus {
      * Registers the customers menu
      */
     public function add_customers_menu() {
-        add_submenu_page(
+        $hook = add_submenu_page(
             'wpinv',
             __( 'Customers', 'invoicing' ),
             __( 'Customers', 'invoicing' ),
@@ -64,19 +64,155 @@ class WPInv_Admin_Menus {
             'wpinv-customers',
             array( $this, 'customers_page' )
         );
+
+        if ( $hook ) {
+            add_action( 'load-' . $hook, array( $this, 'customers_page_load' ) );
+        }
+    }
+
+    /**
+     * Registers the screen options used by the customers table.
+     *
+     * @since 2.8.58
+     */
+    public function customers_page_load() {
+        require_once WPINV_PLUGIN_DIR . 'includes/admin/class-wpinv-customers-table.php';
+
+        add_screen_option(
+            'per_page',
+            array(
+                'label'   => __( 'Customers per page', 'invoicing' ),
+                'default' => 25,
+                'option'  => 'getpaid_customers_per_page',
+            )
+        );
+
+        // Custom per page options are only saved if a filter returns their value.
+        add_filter(
+            'set_screen_option_getpaid_customers_per_page',
+            function ( $status, $option, $value ) {
+                return absint( $value );
+            },
+            10,
+            3
+        );
+
+        $screen = get_current_screen();
+
+        if ( ! $screen ) {
+            return;
+        }
+
+        // Registering the columns is what adds their checkboxes to Screen Options.
+        add_filter(
+            'manage_' . $screen->id . '_columns',
+            function () {
+                $table   = new WPInv_Customers_Table();
+                $columns = $table->get_columns();
+
+                // The customer column holds the row actions, so it can't be hidden.
+                unset( $columns['customer'] );
+
+                return $columns;
+            }
+        );
+
+        add_filter( 'default_hidden_columns', array( $this, 'customers_default_hidden_columns' ), 10, 2 );
+    }
+
+    /**
+     * The rarely used address columns start switched off.
+     *
+     * @since 2.8.58
+     *
+     * @param array     $hidden The columns that are already hidden.
+     * @param WP_Screen $screen The current screen.
+     * @return array
+     */
+    public function customers_default_hidden_columns( $hidden, $screen ) {
+        $hidden = (array) $hidden;
+
+        if ( ! $screen || false === strpos( (string) $screen->id, 'wpinv-customers' ) ) {
+            return $hidden;
+        }
+
+        return array_merge( $hidden, array( 'address', 'zip', 'phone', 'company_id', 'vat_number' ) );
     }
 
     /**
      * Registers the subscriptions menu
      */
     public function add_subscriptions_menu() {
-        add_submenu_page(
+        $hook = add_submenu_page(
             'wpinv',
             __( 'Subscriptions', 'invoicing' ),
             __( 'Subscriptions', 'invoicing' ),
             wpinv_get_capability(),
             'wpinv-subscriptions',
             'wpinv_subscriptions_page'
+        );
+
+        if ( $hook ) {
+            add_action( 'load-' . $hook, array( $this, 'subscriptions_page_load' ) );
+        }
+    }
+
+    /**
+     * Registers the screen options used by the subscriptions table.
+     *
+     * @since 2.8.58
+     */
+    public function subscriptions_page_load() {
+
+        // The single subscription view has no table.
+        if ( ! empty( $_GET['id'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+            return;
+        }
+
+        add_screen_option(
+            'per_page',
+            array(
+                'label'   => __( 'Subscriptions per page', 'invoicing' ),
+                'default' => 10,
+                'option'  => 'getpaid_subscriptions_per_page',
+            )
+        );
+
+        // Custom per page options are only saved if a filter returns their value.
+        add_filter(
+            'set_screen_option_getpaid_subscriptions_per_page',
+            function ( $status, $option, $value ) {
+                return absint( $value );
+            },
+            10,
+            3
+        );
+
+        $screen = get_current_screen();
+
+        if ( ! $screen ) {
+            return;
+        }
+
+        // Registering the columns is what adds their checkboxes to Screen Options.
+        add_filter(
+            'manage_' . $screen->id . '_columns',
+            function () {
+                $columns = WPInv_Subscriptions_List_Table::get_table_columns();
+
+                // The subscription column holds the row actions, so it can't be hidden.
+                unset( $columns['cb'], $columns['subscription'] );
+
+                return $columns;
+            }
+        );
+
+        // The table submits over GET, so keep bulk actions out of the pagination and sorting links.
+        add_filter(
+            'removable_query_args',
+            function ( $args ) {
+                return array_merge( (array) $args, array( 'action', 'action2', 'bulk_status', '_wpnonce', '_wp_http_referer' ) );
+            }
         );
     }
 
@@ -101,6 +237,7 @@ class WPInv_Admin_Menus {
                 <?php
                     $table = new WPInv_Customers_Table();
                     $table->prepare_items();
+                    $table->views();
                     $table->search_box( __( 'Search Customers', 'invoicing' ), 'search-customers' );
                     $table->display();
                 ?>

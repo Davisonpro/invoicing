@@ -634,6 +634,23 @@ td.taxonomy-invoice_status a[href*="cancelled"], .wpinv .subsubsub .cancelled a 
     width: 14%;
 }
 
+#subscribers-filter .fixed .column-subscription {
+    width: 28%;
+}
+#subscribers-filter .fixed .column-item {
+    width: 20%;
+}
+#subscribers-filter .fixed .column-start_date,
+#subscribers-filter .fixed .column-renewal_date {
+    width: 13%;
+}
+#subscribers-filter .fixed .column-status {
+    width: 10%;
+}
+#subscribers-filter .fixed .column-renewals {
+    width: 8%;
+}
+
 .post-type-wpi_item .fixed .column-type .meta,
 .post-type-wpi_item .fixed .column-price .meta,
 .getpaid-is-invoice-cpt .type-wpi_invoice td .meta {

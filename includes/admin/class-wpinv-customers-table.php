@@ -38,6 +38,19 @@ class WPInv_Customers_Table extends WP_List_Table {
 	public $query;
 
 	/**
+	 * The transient that caches the data used to build the filters.
+	 *
+	 * @since 2.8.58
+	 */
+	const FILTERS_TRANSIENT = 'getpaid_customers_table_filters';
+
+	/**
+	 * @var null|array Cached filter data.
+	 * @since 2.8.58
+	 */
+	protected $filter_data = null;
+
+	/**
 	 * Get things started
 	 *
 	 * @since 1.0.19
@@ -54,6 +67,7 @@ class WPInv_Customers_Table extends WP_List_Table {
             )
         );
 
+		$this->per_page = $this->get_items_per_page( 'getpaid_customers_per_page', $this->per_page );
 	}
 
 	/**
@@ -176,12 +190,25 @@ class WPInv_Customers_Table extends WP_List_Table {
 		$avatar     = get_avatar( $customer->get( 'user_id' ) ? $customer->get( 'user_id' ) : $email, 32 );
 
 		// Customer view URL.
-		$view_url    = $customer->get( 'user_id' ) ? esc_url( add_query_arg( 'user_id', $customer->get( 'user_id' ), admin_url( 'user-edit.php' ) ) ) : false;
-		$row_actions = $view_url ? $this->row_actions(
-			array(
-				'view' => '<a href="' . $view_url . '#getpaid-fieldset-billing">' . __( 'Edit Details', 'invoicing' ) . '</a>',
-			)
-		) : '';
+		$view_url = $customer->get( 'user_id' ) ? esc_url( add_query_arg( 'user_id', $customer->get( 'user_id' ), admin_url( 'user-edit.php' ) ) ) : false;
+		$actions  = array();
+
+		if ( $view_url ) {
+			$invoices_url = esc_url(
+				add_query_arg(
+					array(
+						'post_type' => 'wpi_invoice',
+						'author'    => $customer->get( 'user_id' ),
+					),
+					admin_url( 'edit.php' )
+				)
+			);
+
+			$actions['view']     = '<a href="' . $view_url . '#getpaid-fieldset-billing">' . __( 'Edit Details', 'invoicing' ) . '</a>';
+			$actions['invoices'] = '<a href="' . $invoices_url . '">' . __( 'Invoices', 'invoicing' ) . '</a>';
+		}
+
+		$row_actions = empty( $actions ) ? '' : $this->row_actions( $actions );
 
 		// Customer's name.
 		$name   = esc_html( trim( "$first_name $last_name" ) );
@@ -214,6 +241,233 @@ class WPInv_Customers_Table extends WP_List_Table {
 	 */
 	public function bulk_actions( $which = '' ) {
 		return array();
+	}
+
+	/**
+	 * Returns the data used to build the status views and the filters.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_filter_data() {
+
+		if ( is_array( $this->filter_data ) ) {
+			return $this->filter_data;
+		}
+
+		$cached = get_transient( self::FILTERS_TRANSIENT );
+
+		if ( is_array( $cached ) ) {
+			$this->filter_data = $cached;
+
+			return $this->filter_data;
+		}
+
+		$this->filter_data = array(
+			'statuses' => $this->query_status_counts(),
+			'months'   => $this->query_created_months(),
+		);
+
+		set_transient( self::FILTERS_TRANSIENT, $this->filter_data, 12 * HOUR_IN_SECONDS );
+
+		return $this->filter_data;
+	}
+
+	/**
+	 * Returns the available customer statuses.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_customer_statuses() {
+		return apply_filters(
+			'getpaid_customer_statuses',
+			array(
+				'active'   => __( 'Active', 'invoicing' ),
+				'inactive' => __( 'Inactive', 'invoicing' ),
+				'blocked'  => __( 'Blocked', 'invoicing' ),
+			)
+		);
+	}
+
+	/**
+	 * Counts the customers in each status.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	protected function query_status_counts() {
+		global $wpdb;
+
+		$counts  = array();
+		$results = $wpdb->get_results( "SELECT `status`, COUNT(`id`) AS `total` FROM {$wpdb->prefix}getpaid_customers GROUP BY `status`" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+
+		foreach ( $results as $result ) {
+			$counts[ $result->status ] = (int) $result->total;
+		}
+
+		return $counts;
+	}
+
+	/**
+	 * Returns the number of customers in each status.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_status_counts() {
+		$data = $this->get_filter_data();
+
+		return isset( $data['statuses'] ) ? $data['statuses'] : array();
+	}
+
+	/**
+	 * Displays the status views.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	protected function get_views() {
+		$counts   = $this->get_status_counts();
+		$current  = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+		$base_url = remove_query_arg( array( 'status', 'paged' ) );
+
+		$views = array(
+			'all' => sprintf(
+				'<a href="%s"%s>%s <span class="count">(%s)</span></a>',
+				esc_url( $base_url ),
+				'' === $current ? ' class="current"' : '',
+				esc_html__( 'All', 'invoicing' ),
+				number_format_i18n( array_sum( $counts ) )
+			),
+		);
+
+		foreach ( $this->get_customer_statuses() as $status => $label ) {
+
+			// Only show statuses that are in use.
+			if ( empty( $counts[ $status ] ) ) {
+				continue;
+			}
+
+			$views[ $status ] = sprintf(
+				'<a href="%s"%s>%s <span class="count">(%s)</span></a>',
+				esc_url( add_query_arg( 'status', $status, $base_url ) ),
+				$current === $status ? ' class="current"' : '',
+				esc_html( $label ),
+				number_format_i18n( $counts[ $status ] )
+			);
+		}
+
+		return $views;
+	}
+
+	/**
+	 * Queries the months in which customers were created.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	protected function query_created_months() {
+		global $wpdb;
+
+		$results = $wpdb->get_results( "SELECT DISTINCT YEAR( `date_created` ) AS `year`, MONTH( `date_created` ) AS `month` FROM {$wpdb->prefix}getpaid_customers WHERE `date_created` != '0000-00-00 00:00:00' ORDER BY `date_created` DESC" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$months  = array();
+
+		foreach ( $results as $result ) {
+			$months[] = array(
+				'year'  => (int) $result->year,
+				'month' => (int) $result->month,
+			);
+		}
+
+		return $months;
+	}
+
+	/**
+	 * Returns the months in which customers were created.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_created_months() {
+		$data = $this->get_filter_data();
+
+		return isset( $data['months'] ) ? (array) $data['months'] : array();
+	}
+
+	/**
+	 * Displays the filters above the table.
+	 *
+	 * @since 2.8.58
+	 *
+	 * @param string $which Either top or bottom.
+	 */
+	protected function extra_tablenav( $which ) {
+
+		if ( 'top' !== $which ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$current_month  = isset( $_GET['m'] ) ? absint( $_GET['m'] ) : 0;
+		$current_paying = isset( $_GET['paying'] ) ? sanitize_key( $_GET['paying'] ) : '';
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$months = $this->get_created_months();
+
+		echo '<div class="alignleft actions">';
+
+		// Keep the active view when filtering.
+		$current_status = isset( $_GET['status'] ) ? sanitize_key( $_GET['status'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( '' !== $current_status ) {
+			echo '<input type="hidden" name="status" value="' . esc_attr( $current_status ) . '" />';
+		}
+
+		// Date created.
+		if ( ! empty( $months ) ) {
+			echo '<label class="screen-reader-text" for="filter-by-date">' . esc_html__( 'Filter by date', 'invoicing' ) . '</label>';
+			echo '<select name="m" id="filter-by-date">';
+			echo '<option value="0">' . esc_html__( 'All dates', 'invoicing' ) . '</option>';
+
+			foreach ( $months as $month ) {
+				$value = sprintf( '%04d%02d', $month['year'], $month['month'] );
+
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $value ),
+					selected( $current_month, (int) $value, false ),
+					esc_html( sprintf( '%1$s %2$d', $GLOBALS['wp_locale']->get_month( $month['month'] ), $month['year'] ) )
+				);
+			}
+
+			echo '</select>';
+		}
+
+		// Paying customers.
+		echo '<label class="screen-reader-text" for="filter-by-paying">' . esc_html__( 'Filter by invoices', 'invoicing' ) . '</label>';
+		echo '<select name="paying" id="filter-by-paying">';
+
+		$paying_options = array(
+			''    => __( 'All customers', 'invoicing' ),
+			'yes' => __( 'With invoices', 'invoicing' ),
+			'no'  => __( 'Without invoices', 'invoicing' ),
+		);
+
+		foreach ( $paying_options as $key => $label ) {
+			printf(
+				'<option value="%s"%s>%s</option>',
+				esc_attr( $key ),
+				selected( $current_paying, $key, false ),
+				esc_html( $label )
+			);
+		}
+
+		echo '</select>';
+
+		submit_button( __( 'Filter', 'invoicing' ), '', 'filter_action', false );
+
+		echo '</div>';
 	}
 
 	/**
@@ -252,6 +506,27 @@ class WPInv_Customers_Table extends WP_List_Table {
 			}
 		}
 
+		// Filter by customers with/without invoices.
+		$paying = isset( $_GET['paying'] ) ? sanitize_key( $_GET['paying'] ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( 'yes' === $paying ) {
+			$query['purchase_count_min'] = 1;
+		} elseif ( 'no' === $paying ) {
+			$query['purchase_count_max'] = 0;
+		}
+
+		// Filter by the month of creation.
+		$month = isset( $_GET['m'] ) ? absint( $_GET['m'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( 6 === strlen( (string) $month ) ) {
+			$query['date_created_query'] = array(
+				array(
+					'year'  => (int) substr( (string) $month, 0, 4 ),
+					'month' => (int) substr( (string) $month, 4, 2 ),
+				),
+			);
+		}
+
 		// Prepare class properties.
 		$this->query       = getpaid_get_customers( $query, 'query' );
 		$this->total_count = $this->query->get_total();
@@ -265,7 +540,7 @@ class WPInv_Customers_Table extends WP_List_Table {
 	public function prepare_items() {
 
 		$columns  = $this->get_columns();
-		$hidden   = array();
+		$hidden   = $this->screen ? get_hidden_columns( $this->screen ) : array();
 		$sortable = $this->get_sortable_columns();
 		$this->prepare_query();
 

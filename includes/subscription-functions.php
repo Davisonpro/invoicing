@@ -691,3 +691,17 @@ function getpaid_count_subscription_invoices( $parent_invoice_id, $subscription_
 
 	return $count;
 }
+
+/**
+ * Clears the cached subscriptions list table filters.
+ *
+ * Matches WPInv_Subscriptions_List_Table::FILTERS_TRANSIENT.
+ *
+ * @since 2.8.58
+ */
+function getpaid_flush_subscriptions_table_filters() {
+	delete_transient( 'getpaid_subscriptions_table_filters' );
+}
+add_action( 'getpaid_new_subscription', 'getpaid_flush_subscriptions_table_filters' );
+add_action( 'getpaid_update_subscription', 'getpaid_flush_subscriptions_table_filters' );
+add_action( 'getpaid_delete_subscription', 'getpaid_flush_subscriptions_table_filters' );

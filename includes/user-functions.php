@@ -881,5 +881,21 @@ function getpaid_delete_user_data( $user_id, $reassign, $user ) {
 			'user_id' => (int) $user_id,
 		)
 	);
+
+	getpaid_flush_customers_table_filters();
 }
 add_action( 'delete_user', 'getpaid_delete_user_data', 10, 3 );
+
+/**
+ * Clears the cached customers list table filters.
+ *
+ * Matches WPInv_Customers_Table::FILTERS_TRANSIENT.
+ *
+ * @since 2.8.58
+ */
+function getpaid_flush_customers_table_filters() {
+	delete_transient( 'getpaid_customers_table_filters' );
+}
+add_action( 'getpaid_new_customer', 'getpaid_flush_customers_table_filters' );
+add_action( 'getpaid_update_customer', 'getpaid_flush_customers_table_filters' );
+add_action( 'getpaid_delete_customer', 'getpaid_flush_customers_table_filters' );

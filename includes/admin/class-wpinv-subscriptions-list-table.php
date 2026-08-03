@@ -73,6 +73,19 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 	public $bulk_action_notice = array();
 
 	/**
+	 * The transient that caches the data used to build the filters.
+	 *
+	 * @since 2.8.58
+	 */
+	const FILTERS_TRANSIENT = 'getpaid_subscriptions_table_filters';
+
+	/**
+	 * @var null|array Cached filter data.
+	 * @since 2.8.58
+	 */
+	protected $filter_data = null;
+
+	/**
 	 *  Constructor function.
 	 */
 	public function __construct() {
@@ -83,6 +96,8 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 				'plural'   => 'subscriptions',
 			)
 		);
+
+		$this->per_page = $this->get_items_per_page( 'getpaid_subscriptions_per_page', $this->per_page );
 
 		$this->process_bulk_action();
 
@@ -106,6 +121,25 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 			'order'       => ( isset( $_GET['order'] ) ) ? sanitize_text_field( $_GET['order'] ) : 'DESC',
 			'customer_in' => $this->get_user_in(),
 		);
+
+		// Filter by item.
+		$item_id = isset( $_REQUEST['item_id'] ) ? absint( $_REQUEST['item_id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( ! empty( $item_id ) ) {
+			$query['product_in'] = array( $item_id );
+		}
+
+		// Filter by the month of creation.
+		$month = isset( $_REQUEST['m'] ) ? absint( $_REQUEST['m'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+
+		if ( 6 === strlen( (string) $month ) ) {
+			$query['date_created_query'] = array(
+				array(
+					'year'  => (int) substr( (string) $month, 0, 4 ),
+					'month' => (int) substr( (string) $month, 4, 2 ),
+				),
+			);
+		}
 
 		if ( is_array( $query['customer_in'] ) && empty( $query['customer_in'] ) ) {
 			$this->total_count         = 0;
@@ -199,6 +233,185 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 
 		return $views;
 
+	}
+
+	/**
+	 * Returns the data used to build the filters.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_filter_data() {
+
+		if ( is_array( $this->filter_data ) ) {
+			return $this->filter_data;
+		}
+
+		$cached = get_transient( self::FILTERS_TRANSIENT );
+
+		if ( is_array( $cached ) ) {
+			$this->filter_data = $cached;
+
+			return $this->filter_data;
+		}
+
+		$this->filter_data = array(
+			'items'  => $this->query_used_items(),
+			'months' => $this->query_created_months(),
+		);
+
+		set_transient( self::FILTERS_TRANSIENT, $this->filter_data, 12 * HOUR_IN_SECONDS );
+
+		return $this->filter_data;
+	}
+
+	/**
+	 * Queries the items that have at least one subscription.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	protected function query_used_items() {
+		global $wpdb;
+
+		return wp_parse_id_list( $wpdb->get_col( "SELECT DISTINCT `product_id` FROM {$wpdb->prefix}wpinv_subscriptions WHERE `product_id` > 0" ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+	}
+
+	/**
+	 * Queries the months in which subscriptions were created.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	protected function query_created_months() {
+		global $wpdb;
+
+		$results = $wpdb->get_results( "SELECT DISTINCT YEAR( `created` ) AS `year`, MONTH( `created` ) AS `month` FROM {$wpdb->prefix}wpinv_subscriptions WHERE `created` != '0000-00-00 00:00:00' ORDER BY `created` DESC" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$months  = array();
+
+		foreach ( $results as $result ) {
+			$months[] = array(
+				'year'  => (int) $result->year,
+				'month' => (int) $result->month,
+			);
+		}
+
+		return $months;
+	}
+
+	/**
+	 * Returns the items that have at least one subscription.
+	 *
+	 * @since 2.8.58
+	 * @return array An array of item ids and their names.
+	 */
+	public function get_used_items() {
+		$data = $this->get_filter_data();
+		$ids  = isset( $data['items'] ) ? wp_parse_id_list( $data['items'] ) : array();
+
+		if ( empty( $ids ) ) {
+			return array();
+		}
+
+		$items = array();
+		$posts = get_posts(
+			array(
+				'post__in'    => $ids,
+				'post_type'   => 'wpi_item',
+				'post_status' => 'any',
+				'numberposts' => -1,
+			)
+		);
+
+		foreach ( $posts as $post ) {
+			$items[ $post->ID ] = get_the_title( $post );
+		}
+
+		asort( $items );
+
+		return $items;
+	}
+
+	/**
+	 * Returns the months in which subscriptions were created.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public function get_created_months() {
+		$data = $this->get_filter_data();
+
+		return isset( $data['months'] ) ? (array) $data['months'] : array();
+	}
+
+	/**
+	 * Displays the filters above the table.
+	 *
+	 * @since 2.8.58
+	 *
+	 * @param string $which Either top or bottom.
+	 */
+	protected function extra_tablenav( $which ) {
+
+		if ( 'top' !== $which ) {
+			return;
+		}
+
+		$months = $this->get_created_months();
+		$items  = $this->get_used_items();
+
+		if ( empty( $months ) && empty( $items ) ) {
+			return;
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$current_month = isset( $_REQUEST['m'] ) ? absint( $_REQUEST['m'] ) : 0;
+		$current_item  = isset( $_REQUEST['item_id'] ) ? absint( $_REQUEST['item_id'] ) : 0;
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		echo '<div class="alignleft actions">';
+
+		// Date created.
+		if ( ! empty( $months ) ) {
+			echo '<label class="screen-reader-text" for="filter-by-date">' . esc_html__( 'Filter by date', 'invoicing' ) . '</label>';
+			echo '<select name="m" id="filter-by-date">';
+			echo '<option value="0">' . esc_html__( 'All dates', 'invoicing' ) . '</option>';
+
+			foreach ( $months as $month ) {
+				$value = sprintf( '%04d%02d', $month['year'], $month['month'] );
+
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $value ),
+					selected( $current_month, (int) $value, false ),
+					esc_html( sprintf( '%1$s %2$d', $GLOBALS['wp_locale']->get_month( $month['month'] ), $month['year'] ) )
+				);
+			}
+
+			echo '</select>';
+		}
+
+		// Item.
+		if ( ! empty( $items ) ) {
+			echo '<label class="screen-reader-text" for="filter-by-item">' . esc_html__( 'Filter by item', 'invoicing' ) . '</label>';
+			echo '<select name="item_id" id="filter-by-item">';
+			echo '<option value="0">' . esc_html__( 'All items', 'invoicing' ) . '</option>';
+
+			foreach ( $items as $item_id => $item_name ) {
+				printf(
+					'<option value="%s"%s>%s</option>',
+					esc_attr( $item_id ),
+					selected( $current_item, $item_id, false ),
+					esc_html( $item_name )
+				);
+			}
+
+			echo '</select>';
+		}
+
+		submit_button( __( 'Filter', 'invoicing' ), '', 'filter_action', false );
+
+		echo '</div>';
 	}
 
 	/**
@@ -340,14 +553,14 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 
 			return getpaid_format_date_value( $item->get_date_created() ) . '<br>' . sprintf(
 				__( 'Via %s', 'invoicing' ),
-				'<strong><a href="' . esc_url( $url ) . '" target="_blank">' . esc_html( $item->get_parent_invoice()->get_gateway_title() ) . '</a></strong>'
+				'<strong><a href="' . esc_url( $url ) . '" target="_blank">' . esc_html( $gateway ) . '</a></strong>'
 			);
 
 		}
 
 		return getpaid_format_date_value( $item->get_date_created() ) . '<br>' . sprintf(
 			__( 'Via %s', 'invoicing' ),
-			'<strong>' . esc_html( $item->get_parent_invoice()->get_gateway_title() ) . '</strong>'
+			'<strong>' . esc_html( $gateway ) . '</strong>'
 		);
 
 	}
@@ -431,7 +644,7 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 	public function prepare_items() {
 
 		$columns  = $this->get_columns();
-		$hidden   = array();
+		$hidden   = $this->screen ? get_hidden_columns( $this->screen ) : array();
 		$sortable = $this->get_sortable_columns();
 
 		$this->_column_headers = array( $columns, $hidden, $sortable );
@@ -451,6 +664,16 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 	 * @return array
 	 */
 	public function get_columns() {
+		return self::get_table_columns();
+	}
+
+	/**
+	 * Table columns.
+	 *
+	 * @since 2.8.58
+	 * @return array
+	 */
+	public static function get_table_columns() {
 		$columns = array(
 			'cb'           => '<input type="checkbox" />',
 			'subscription' => __( 'Subscription', 'invoicing' ),
@@ -527,6 +750,11 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 
 		$ids = isset( $_REQUEST['id'] ) ? array_map( 'absint', (array) $_REQUEST['id'] ) : array(); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 
+		// The table submits over GET, so drop the action before the sorting and pagination links are built from the URL.
+		if ( ! empty( $_SERVER['REQUEST_URI'] ) ) {
+			$_SERVER['REQUEST_URI'] = remove_query_arg( array( 'action', 'action2', 'bulk_status', 'id', '_wpnonce', '_wp_http_referer' ), $_SERVER['REQUEST_URI'] );
+		}
+
 		if ( empty( $ids ) ) {
 			return;
 		}
@@ -548,7 +776,7 @@ class WPInv_Subscriptions_List_Table extends WP_List_Table {
 				break;
 
 			case 'change_status':
-				$new_status       = isset( $_POST['bulk_status'] ) ? sanitize_text_field( wp_unslash( $_POST['bulk_status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+				$new_status       = isset( $_REQUEST['bulk_status'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['bulk_status'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 				$allowed_statuses = array_keys( getpaid_get_subscription_statuses() );
 
 				if ( empty( $new_status ) || ! in_array( $new_status, $allowed_statuses, true ) ) {

@@ -18,13 +18,13 @@ function wpinv_subscriptions_page() {
 
 	<div class="wrap">
 		<h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-		<div class="bsui">
 
 			<?php
 
 				// Verify user permissions.
 				if ( ! wpinv_current_user_can_manage_invoicing() ) {
 
+				echo '<div class="bsui">';
 				aui()->alert(
                     array(
 						'type'    => 'danger',
@@ -32,11 +32,14 @@ function wpinv_subscriptions_page() {
 					),
 					true
                 );
+				echo '</div>';
 
 				} elseif ( ! empty( $_GET['id'] ) && is_numeric( $_GET['id'] ) ) {
 
 				// Display a single subscription.
+				echo '<div class="bsui">';
 				wpinv_recurring_subscription_details();
+				echo '</div>';
 				} else {
 
 				// Display a list of available subscriptions.
@@ -45,7 +48,6 @@ function wpinv_subscriptions_page() {
 
 			?>
 
-		</div>
 	</div>
 
 	<?php
@@ -74,7 +76,7 @@ function getpaid_print_subscriptions_list() {
 
 	?>
 	<?php $subscribers_table->views(); ?>
-	<form id="subscribers-filter" class="bsui" method="post">
+	<form id="subscribers-filter" class="bsui" method="get">
 		<?php wp_nonce_field( 'bulk-' . $subscribers_table->_args['plural'] ); ?>
 		<input type="hidden" name="page" value="wpinv-subscriptions" />
 		<?php if ( ! empty( $_GET['status'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended ?>
