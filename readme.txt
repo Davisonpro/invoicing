@@ -146,6 +146,9 @@ Automatic updates should work seamlessly. To avoid unforeseen problems, we alway
 
 == Changelog ==
 
+= 2.8.59 - 2026-09-TBD =
+* Update AUI 0.2.54 and SD 1.2.36 - CHANGED
+
 = 2.8.59 - 2026-09-09 =
 * Country and State/Province dropdowns were not working in the payment form modal - FIXED
 * Upgrade AUI 0.2.53 - CHANGED
